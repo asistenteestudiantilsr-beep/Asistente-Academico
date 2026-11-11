@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1f3a">
+  <meta name="description" content="Asistente Académico: horarios, exámenes y tareas con recordatorios en Google Calendar.">
+  <title>Asistente Académico</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icono-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icono-192.png">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <div id="aviso-conexion" class="aviso-conexion" hidden>
+    Sin conexión. Algunas funciones pueden no estar disponibles.
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <header class="cabecera">
+    <div class="marca">
+      <span class="marca-icono" aria-hidden="true">A</span>
+      <div class="marca-texto">
+        <strong>Asistente Académico</strong>
+        <span id="cabecera-sub">Tu agenda de clases y entregas</span>
+      </div>
+    </div>
+    <div class="cabecera-acciones">
+      <button id="btn-recargar" class="btn-icono" type="button" title="Actualizar datos" aria-label="Actualizar datos">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg>
+      </button>
+      <button id="btn-salir" class="btn-icono oculto" type="button" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3Zm7.6 4.6L16.2 9l2 2H9v2h9.2l-2 2 1.4 1.4L22 12l-4.4-4.4Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="contenido">
+    <section id="pantalla-inicio" class="pantalla pantalla-centrada">
+      <div class="cargando" aria-label="Cargando"></div>
+      <p>Preparando el asistente…</p>
+    </section>
+
+    <section id="pantalla-config" class="pantalla oculto">
+      <h1>Configuración</h1>
+      <p class="ayuda">Pegá la URL de la aplicación publicada en Google Apps Script. Termina en <strong>/exec</strong>.</p>
+      <form id="form-config" class="formulario">
+        <label for="api-url">URL de la API</label>
+        <input id="api-url" type="url" inputmode="url" autocomplete="off"
+               placeholder="https://script.google.com/macros/s/…/exec" required>
+        <div class="acciones-formulario">
+          <button type="submit" class="btn-principal">Guardar y conectar</button>
+          <button id="btn-probar-api" type="button" class="btn-secundario">Probar conexión</button>
+        </div>
+      </form>
+      <p id="config-mensaje" class="mensaje-config" role="status"></p>
+      <button id="btn-config-volver" type="button" class="btn-texto">Volver</button>
+    </section>
+
+    <section id="pantalla-login" class="pantalla oculto">
+      <h1>Ingresar</h1>
+      <p class="ayuda">Usá el email de la cuenta del proyecto y tu PIN personal.</p>
+      <form id="form-login" class="formulario">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" inputmode="email" autocomplete="username"
+               placeholder="asistente.estudiantilsr@gmail.com" required>
+        <label for="login-pin">PIN</label>
+        <input id="login-pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}"
+               autocomplete="current-password" placeholder="••••••" required>
+        <button type="submit" class="btn-principal">Entrar</button>
+      </form>
+      <p id="login-mensaje" class="mensaje-error" role="alert"></p>
+      <button id="btn-login-config" type="button" class="btn-texto">Configurar URL de la API</button>
+    </section>
+
+    <section id="pantalla-principal" class="pantalla oculto">
+      <div class="bienvenida">
+        <p id="saludo" class="saludo">Hola.</p>
+        <p id="estado-api" class="estado-api">Conectado</p>
+      </div>
+
+      <div class="zona-micro">
+        <button id="btn-micro" class="btn-micro" type="button" aria-label="Hablar" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/>
+          </svg>
+        </button>
+        <p id="indicador" class="indicador" role="status">Tocá el micrófono y preguntá</p>
+        <p id="transcripcion" class="transcripcion" aria-live="polite"></p>
+      </div>
+
+      <div class="chips" role="group" aria-label="Consultas rápidas">
+        <button type="button" class="chip" data-consulta="Qué tengo hoy">Hoy</button>
+        <button type="button" class="chip" data-consulta="Qué tengo mañana">Mañana</button>
+        <button type="button" class="chip" data-consulta="Qué tengo esta semana">Semana</button>
+        <button type="button" class="chip" data-consulta="Qué exámenes tengo">Exámenes</button>
+        <button type="button" class="chip" data-consulta="Qué tareas me faltan">Tareas</button>
+      </div>
+
+      <article id="tarjeta-respuesta" class="tarjeta-respuesta oculto" aria-live="polite">
+        <h2>Respuesta</h2>
+        <p id="respuesta-texto"></p>
+        <div class="acciones-respuesta">
+          <button id="btn-ver-agenda" class="btn-secundario" type="button">Ver agenda</button>
+          <button id="btn-repetir" class="btn-texto" type="button">Repetir</button>
+        </div>
+      </article>
+
+      <form id="form-consulta" class="formulario-consulta">
+        <label class="oculto" for="consulta-texto">Escribir consulta</label>
+        <input id="consulta-texto" type="text" maxlength="300" autocomplete="off"
+               placeholder="O escribí tu consulta acá…">
+        <button type="submit" class="btn-principal">Preguntar</button>
+      </form>
+
+      <section class="bloque">
+        <div class="bloque-titulo">
+          <h2>Próximos</h2>
+          <button id="btn-ir-agenda" class="btn-texto" type="button">Ver todo</button>
+        </div>
+        <div id="resumen-proximo" class="lista-tarjetas"></div>
+      </section>
+    </section>
+
+    <section id="pantalla-agenda" class="pantalla oculto">
+      <div class="titulo-fila">
+        <h1>Agenda</h1>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Rango de la agenda">
+        <button class="btn-filtro activo" type="button" data-agenda="hoy">Hoy</button>
+        <button class="btn-filtro" type="button" data-agenda="manana">Mañana</button>
+        <button class="btn-filtro" type="button" data-agenda="semana">Semana</button>
+      </div>
+      <p id="agenda-rango" class="ayuda"></p>
+      <div id="agenda-contenido"></div>
+    </section>
+
+    <section id="pantalla-datos" class="pantalla oculto">
+      <div class="titulo-fila">
+        <h1>Mis datos</h1>
+        <button id="btn-nuevo" class="btn-principal" type="button">Agregar materia</button>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Tipo de dato">
+        <button class="btn-filtro activo" type="button" data-tab="materias">Materias</button>
+        <button class="btn-filtro" type="button" data-tab="horarios">Horarios</button>
+        <button class="btn-filtro" type="button" data-tab="examenes">Exámenes</button>
+        <button class="btn-filtro" type="button" data-tab="tareas">Tareas</button>
+      </div>
+      <div id="datos-contenido"></div>
+    </section>
+
+    <section id="pantalla-ajustes" class="pantalla oculto">
+      <h1>Ajustes</h1>
+
+      <article class="tarjeta">
+        <h2>Conexión</h2>
+        <p id="ajustes-api" class="texto-secundario"></p>
+        <div class="acciones-formulario">
+          <button id="btn-config-api" class="btn-secundario" type="button">Cambiar URL</button>
+          <button id="btn-probar-api-ajustes" class="btn-secundario" type="button">Probar conexión</button>
+        </div>
+      </article>
+
+      <article class="tarjeta">
+        <h2>Seguridad</h2>
+        <form id="form-pin" class="formulario">
+          <label for="pin-actual">PIN actual</label>
+          <input id="pin-actual" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required>
+          <label for="pin-nuevo">PIN nuevo</label>
+          <input id="pin-nuevo" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required>
+          <button type="submit" class="btn-principal">Cambiar PIN</button>
+        </form>
+      </article>
+
+      <article class="tarjeta">
+        <h2>Cuenta</h2>
+        <p id="ajustes-usuario" class="texto-secundario"></p>
+        <button id="btn-salir-ajustes" class="btn-peligro" type="button">Cerrar sesión</button>
+      </article>
+
+      <p class="version" id="version">Asistente Académico v0.1.0</p>
+    </section>
+  </main>
+
+  <nav id="nav-inferior" class="nav-inferior oculto" aria-label="Navegación principal">
+    <button type="button" data-nav="principal" class="activo" aria-label="Inicio">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3Z"/></svg>
+      <span>Inicio</span>
+    </button>
+    <button type="button" data-nav="agenda" aria-label="Agenda">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7Zm12 8v10H5V10h14ZM5 8V6h14v2H5Z"/></svg>
+      <span>Agenda</span>
+    </button>
+    <button type="button" data-nav="datos" aria-label="Mis datos">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4V4Zm2 2v4h12V6H6Zm0 6v6h5v-6H6Zm7 0v6h5v-6h-5Z"/></svg>
+      <span>Datos</span>
+    </button>
+    <button type="button" data-nav="ajustes" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm9 4a7.1 7.1 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L16 3h-4l-.5 2.7a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5A7.1 7.1 0 0 0 3 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2L8 21h4l.5-2.7a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg>
+      <span>Ajustes</span>
+    </button>
+  </nav>
+
+  <dialog id="dialogo" class="dialogo">
+    <form method="dialog" id="dialogo-form">
+      <div class="dialogo-cabecera">
+        <h2 id="dialogo-titulo"></h2>
+        <button type="button" id="dialogo-cerrar" class="btn-icono" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3 1.4 1.4Z"/></svg>
+        </button>
+      </div>
+      <div id="dialogo-campos" class="dialogo-campos"></div>
+      <div class="acciones-formulario">
+        <button type="submit" class="btn-principal" id="dialogo-guardar">Guardar</button>
+        <button type="button" class="btn-secundario" id="dialogo-cancelar">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
